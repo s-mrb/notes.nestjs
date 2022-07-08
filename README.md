@@ -4,7 +4,9 @@
 - [Intro](#intro)
 - [Installating Nest, Creating and Running Project](#installating-nest-creating-and-running-project)
 - [Components of  a Nest Application](#components-of--a-nest-application)
-- [Cont](#cont)
+- [Nest Development Mode](#nest-development-mode)
+- [REST API](#rest-api)
+- [Contr](#contr)
 
 # Intro
 
@@ -90,7 +92,7 @@ export class AppModule {}
   - **providers**
 
 
-- Controllers are where specific **requests** of your application are handles, in below controller **Get** request is handled
+- Controllers are where specific **requests** of your application are handled, in below controller **Get** request is handled
 
 **app.controller.ts**
 ```ts
@@ -101,6 +103,8 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
+  // since no route specified so, it will be used for root route,
+  // i.e. get localhost:3000
   @Get()
   getHello(): string {
     return this.appService.getHello();
@@ -111,7 +115,9 @@ export class AppController {
 
 > You can see above that `AppController` utilizes `AppService` **Provider** to separate out business logic from the controller itself, **Provider**s like this work for **dependency injection**.
 
-- `AppController` gets initialized with servie (***this is a class***) named `appService`  initialized with `AppService`
+- `AppController` gets initialized with service
+- Contollers just control which method of service provider to call on which request, they don't know the business logic, abstraction
+- But which service provider to use? It is told via constructor, initializing it with service provider  (***this is a class***), here named `appService`  initialized with `AppService`
 - `AppService` class contains method `getHello`
 
 **app.service.ts**
@@ -132,8 +138,96 @@ export class AppService {
 > You can see **service** is made **injectable**, to allow **dependency injection** and to **separate business logic from the controller** itself.
 
 
+# Nest Development Mode
 
-# Cont
+Nest offers two scripts to run your project:
+- `npm run start`
+- `npm run start:dev`
+  - gives realtime compilations and automatic server rebuilds whenever we save changes to files
+
+
+# REST API
+
+- Controller are the most important building blocks of NestJS applications as they handle requests
+- You can create a controller by running the below commands, lets say controller name is `coffees`:
+  - if you don't want to include the test file include `--no-spec` to the command
+  - if you want to add new controller to **custom directory** add it to the name of controller in `g` command
+    - there would still be a directory of the name of your controller, but it would be inside your custom named directory
+
+
+```sh
+nest generate controller coffees
+
+# nest g co
+```
+
+- The above command automatically creates the **controller** and the associated **test file** for it
+
+Before running the command, the project directory looks like:
+
+![2](static/images/2.png)
+
+After the command it looks like this:
+
+![3](static/images/3.png)
+
+**The command also updates `app.modules.ts` and adds the new controller to the app**
+<br>
+
+**app.modules.ts**
+```js
+import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { CoffeesController } from './coffees/coffees.controller';
+
+@Module({
+  imports: [],
+  controllers: [AppController, CoffeesController],
+  providers: [AppService],
+})
+export class AppModule {}
+
+```
+
+- `nest g co modules/coffees` will create `modules/coffees` directory inside `src`, and your files will be inside `coffees` folder
+- use `dry-run` flag to view simulated output
+- newly created `coffees` controller have the following code:
+
+```js
+import { Controller } from '@nestjs/common';
+
+@Controller('coffees')
+export class CoffeesController {}
+
+```
+
+> NOTE: Controllers handle requests, but how App knows which controller handles a specific URL, controller decorators can be passed a string and metadata needed for Nest to create a routing map. `/coffees` url will go to `Coffees` controller because the decorator of `CoffeesController` takes this as string. 
+
+- Currently no handler attached to `CoffeesController`
+- To add handler for `GET` request to route `coffee` of server, we can add following code
+  - Note that name of method doesn't matter, only the `GET` decorator matters 
+
+```js
+import { Controller, Get } from '@nestjs/common';
+
+@Controller('coffees')
+export class CoffeesController {
+  @Get()
+  findAll() {
+    return 'This action returns all coffees, when you go to `[host]:[port]/coffees`';
+  }
+
+  @Get(`flavors`)
+  findAll() {
+    return 'This action returns all coffees, when you go to `[host]:[port]/coffees/flavors`';
+  }
+}
+```
+
+> NOTE: Observe the second Get decorator, it creates nested path and appends it to that of controller, i.e. `host:port/[controller_deco_string]/[http_req_deco_string]`
+
+# Contr
 
 - add dotenv
 - add port on console when we run project
