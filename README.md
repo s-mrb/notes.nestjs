@@ -6,6 +6,13 @@
 - [Components of  a Nest Application](#components-of--a-nest-application)
 - [Nest Development Mode](#nest-development-mode)
 - [REST API](#rest-api)
+  - [Make Controller](#make-controller)
+  - [Add handler to Controllers](#add-handler-to-controllers)
+  - [Use Route Parameters](#use-route-parameters)
+  - [Use Request Payload](#use-request-payload)
+  - [Response Status Code](#response-status-code)
+  - [Handling Update and Delete](#handling-update-and-delete)
+  - [Implement Pagination](#implement-pagination)
 - [Contr](#contr)
 
 # Intro
@@ -148,6 +155,9 @@ Nest offers two scripts to run your project:
 
 # REST API
 
+
+## Make Controller
+
 - Controller are the most important building blocks of NestJS applications as they handle requests
 - You can create a controller by running the below commands, lets say controller name is `coffees`:
   - if you don't want to include the test file include `--no-spec` to the command
@@ -204,6 +214,8 @@ export class CoffeesController {}
 
 > NOTE: Controllers handle requests, but how App knows which controller handles a specific URL, controller decorators can be passed a string and metadata needed for Nest to create a routing map. `/coffees` url will go to `Coffees` controller because the decorator of `CoffeesController` takes this as string. 
 
+## Add handler to Controllers
+
 - Currently no handler attached to `CoffeesController`
 - To add handler for `GET` request to route `coffee` of server, we can add following code
   - Note that name of method doesn't matter, only the `GET` decorator matters 
@@ -226,6 +238,89 @@ export class CoffeesController {
 ```
 
 > NOTE: Observe the second Get decorator, it creates nested path and appends it to that of controller, i.e. `host:port/[controller_deco_string]/[http_req_deco_string]`
+
+## Use Route Parameters
+
+- routes with static paths won't work when you need dynamic data as part of your request
+- lets say we made a get request to `/coffees/123` where `123` is dynamic and referring to an `ID`
+- you can get the `params` object as shown below:
+
+```js
+  @Get(':id')
+  findOne(@Param() params){
+    return `This action returns ${params.id} coffee`
+  }
+```
+
+- in order to get only the required attribute from the object:
+
+```js
+  @Get(':id')
+  findOne(@Param('id') id:string){
+    return `This action returns ${id} coffee`
+  }
+```
+
+## Use Request Payload
+
+```js
+  @Post()
+  create(@Body() body) {
+    return body;
+  }
+```
+
+- to access specific attribute from the payload and not the entire body
+
+```js
+  @Post()
+  create(@Body('name') body) {
+    // not body, instead just name
+    return body;
+  }
+```
+
+## Response Status Code
+
+- if your route is deprecated then you can use custome codes like below
+
+
+```js
+  @Post()
+  @HttpCode(HttpStatus.GONE)
+  // The HyperText Transfer Protocol (HTTP) 410 Gone client error response code
+  // indicates that access to the target resource is no longer available
+  // at the origin server and that this condition is likely to be permanent.
+  create(@Body() body) {
+    return body;
+  }
+```
+
+> In Nest you can use underlying library specific response objects, by default Nest is using Express under the hood
+
+- to access underlying response objects, Nest has a decorator called `Res`
+
+```js
+ @Get()
+  findAll(@Res() response) {
+    response.status(200).send('This action returns all coffees')
+}
+```
+
+> NOTE: `Res` should be used with care, you lose compatibility with `Nest` features that depend on Nest response handlers.
+> When we use `Res` then out code becomes platform dependent.
+
+## Handling Update and Delete 
+
+```js
+  @Patch(':id')
+  update(@Param('id') id:string, @Body() body) {
+    return `this action updates ${id} coffee with body ${body}`
+  }
+
+```
+
+## Implement Pagination
 
 # Contr
 
