@@ -20,6 +20,9 @@
     - [Exception Layer](#exception-layer)
   - [Modularizing](#modularizing)
   - [Data Transfer Object, DTO](#data-transfer-object-dto)
+    - [Validation Pipe: Validate input Data](#validation-pipe-validate-input-data)
+  - [Handling Malicious Request Data](#handling-malicious-request-data)
+  - [Autotransform Payload to DTO Instance](#autotransform-payload-to-dto-instance)
 - [Contr](#contr)
 
 # Intro
@@ -550,6 +553,206 @@ export class CoffeesModule {}
 
 
 ## Data Transfer Object, DTO
+
+> DTO's are simple objects they don't contain any business logic or anything that requires testing
+> DTO is used to encapsulate the data and send it from one application to another, DTO's help us to find the interfaces or inputs and outputs within our system.
+
+- We can use DTO in POST request to define the shape or interface for what we're expecting to receive for our body
+- We can use `@Body()` decorator with `POST` and `PATCH` endpoints, but we have no idea what we're expecting the payload to be, this is exactly where DTO's come in
+- To generate a `DTO`, we can use the Nest CLI to simply generate a basic class for us via CLI
+
+**CreateCoffeeDto class for out POST:** 
+
+```sh
+nest g class coffees/dto/create-coffee.dto --no-spec
+```
+
+- Populate the `create-coffee.dto.ts` with the structure you wanna expect in `POST`
+
+**coffees/dto/create-coffee.dto.ts**
+```ts
+export class CreateCoffeeDto {
+    readonly name: string;
+    readonly brand: string;
+    readonly flavors: string[];
+}
+```
+
+- Use the `DTO` in the associated request handler
+
+```ts
+  @Post()
+  create(@Body() createCoffeeDto:CreateCoffeeDto) {
+    return this.coffeesService.create(createCoffeeDto);
+  }
+```
+
+> One great practice with DTO's is marking all properties read-only
+
+**UpdateCoffeeDto class for out POST:** 
+
+```sh
+nest g class coffees/dto/update-coffee.dto --no-spec
+```
+
+**coffees/dto/update-coffee.dto.ts**
+```ts
+export class UpdateCoffeeDto {
+    // ? for optional as it is Update request
+    readonly name?: string;
+    readonly brand?: string;
+    readonly flavors?: string[];
+}
+```
+
+**Update Patch:**
+
+```ts
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateCoffeeDto:UpdateCoffeeDto) {
+    return this.coffeesService.update(id, updateCoffeeDto);
+  }
+```
+
+### Validation Pipe: Validate input Data
+
+- we will make use of Nest native `ValidationPipe` and will install `class-validator` and `class-transformer`
+- ValidationPipe provides a convenient way of enforcing validation rules for all incoming clien payloads
+- You can specify these rules by using a simple annotation in your DTO
+
+To make use of ValidationPipe, update `main.ts`, add `app.useGlobalPipes`:
+
+**main.ts**
+```ts
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe());
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+- To make use of `ValidationPipe` via `class-validator` update the DTO class:
+
+**create-coffee.dto.ts:**
+```ts
+import {IsString} from 'class-validator'
+export class CreateCoffeeDto {
+
+    @IsString()
+    readonly name: string;
+
+    @IsString()
+    readonly brand: string;
+
+    // use each as it is array
+    @IsString({each:true})
+    readonly flavors: string[];
+}
+```
+
+
+- To do the same in `update-coffee.dto.ts`, we make use of `mapped-types` to avoid redundant code
+
+```sh
+npm i @nestjs/mapped-types
+```
+
+```ts
+import { PartialType } from "@nestjs/mapped-types";
+import { CreateCoffeeDto } from "./create-coffee.dto";
+
+// PartialType returning the Type of the class we passed into it,
+// with all of the properties set to optional, no duplicate code
+// It not only marks all the fields optional but
+// it also applies all the validation rules applied via decorators
+// as well as  adds a single additional validation rule to each field the @IsOptional() rule
+export class UpdateCoffeeDto extends PartialType(CreateCoffeeDto){
+
+}
+
+```
+
+## Handling Malicious Request Data
+
+- ValidationPipe also have a feature to filter out properties that sould not be received by a method handler via `whitelisting`
+- any property not included in the white list is automatically stripped from the resulting object
+- We could enable this by simply entering some options to `ValidationPipe`
+- Update `main.ts` to update `ValidationPipe`
+
+**main.ts:**
+```ts
+app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+```
+
+> **How is it helpful?**
+> Lets say we want to avoid users passing in invalid properties to our `CoffeesController`'s `POST` request when they are >
+> creating new Coffees. This whitelist feature will make sure all those unwanted or invalid properties are automatically 
+> stripped and removed and then will be passed to handlers and business logic instead of throwing an error.
+
+**In order to throw error instead of stripping:**
+
+**main.ts:**
+```ts
+app.useGlobalPipes(
+  new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
+);
+```
+
+## Autotransform Payload to DTO Instance
+
+- When we receive requests with payloads, these payloads typically come over the network as plain JavaScript objects
+- To make sure that payload comes in the shape we expect it to be in we make use of DTO, but currently it is not instance of DTO class:
+
+**coffees.controller.ts**
+```ts
+  @Post()
+
+  create(@Body() createCoffeeDto:CreateCoffeeDto) {
+  // false
+  console.log(createCoffeeDto instanceof createCoffeeDto)
+  return this.coffeesService.create(createCoffeeDto);
+  }
+```
+
+- `ValidationPipe` can help us transform `createCoffeeDto` (currently just in shape of `CreateCoffeeDto`) into instance of `CreateCoffeeDto`
+
+Update `app.use` in **main.ts** to `createCoffeeDto` into instance of `CreateCoffeeDto`
+```ts
+app.useGlobalPipes(
+  new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }),
+);
+```
+
+> This auto transforation feature also performs primitive type conversions for things such as booleans and numbers, we can make use of this feature to transform string form of numbers sent in request into actual number data type.
+
+
+**Currenlty Get in `coffees.controller.ts` have id as string:**
+```ts
+@Get(':id')
+findOne(@Param('id') id: string) {
+  return this.coffeesService.findOne(id);
+}
+```
+
+**We can make it `int` and `transform:true` will try to do implicit conversion**
+
+```ts
+@Get(':id')
+findOne(@Param('id') id: int) {
+  return this.coffeesService.findOne(id);
+}
+```
+
+> NOTE: transform impact performance
 
 # Contr
 
