@@ -13,6 +13,7 @@
   - [Response Status Code](#response-status-code)
   - [Handling Update and Delete](#handling-update-and-delete)
   - [Implement Pagination](#implement-pagination)
+  - [Creating a basic service](#creating-a-basic-service)
 - [Contr](#contr)
 
 # Intro
@@ -321,6 +322,156 @@ export class CoffeesController {
 ```
 
 ## Implement Pagination
+
+- we use path parameter to identify a speciifc resource while we use query paramter to filter or sort that resource
+- Nest has a helpful decorator for getting all or a specific portion of the query parameter called `@Query()`
+
+
+```js
+ @Get()
+  findAll(@Query() paginationQuery) {
+    const {limit, offset} = paginationQuery
+    return `This action returns all coffees. Limit: ${limit}, Offset: ${offset}`
+}
+```
+
+## Creating a basic service
+
+- to generate a servie and to automatically inlcude in the service in the providers array (corresponding test file also generated):
+
+```sh
+nest generate service
+```
+
+**coffees.service.ts**
+```ts
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class CoffeesService {}
+ 
+```
+
+- Each service is a provider i.e. it can inject dependency
+- **to inject the provider simply use the constructor in the controller**
+
+**coffees.controller.ts:**
+```ts
+// you dont want to alter provider hence readonly
+// you dont want to make service accessable outside class
+constructor(private readonly coffeesService: CoffeesService) {}
+```
+
+- add business logic in the service provider and add constructor in controller such that it looks like this:
+  
+
+**To simulate a database lets make `/entities/coffee.entity.ts` inside `src/coffees`:**
+
+```ts
+export class Coffee {
+  id: number;
+  name: string;
+  brand: string;
+  flavors: string[];
+}
+```
+
+**Update coffees.service.ts:**
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { Coffee } from './entities/coffee.entity';
+
+@Injectable()
+export class CoffeesService {
+  private coffees: Coffee[] = [
+    {
+      id: 1,
+      name: 'Shipwreck Roast',
+      brand: 'Buddy Brew',
+      flavors: ['chocolate', 'vanilla'],
+    },
+  ];
+
+  findAll() {
+    return this.coffees;
+  }
+
+  findOne(id: string) {
+    return this.coffees.find((item) => item.id === +id);
+  }
+
+  create(createCoffeeDto: any) {
+    this.coffees.push(createCoffeeDto);
+  }
+
+  update(id: string, updateCoffeeDto: any) {
+    const existingCoffee = this.findOne(id);
+    if (existingCoffee) {
+      // update existing
+    }
+  }
+
+  remove(id: string) {
+    const coffeeIndex = this.coffees.findIndex((item) => item.id === +id);
+    if (coffeeIndex >= 0) {
+      this.coffees.splice(coffeeIndex, 1);
+    }
+  }
+}
+
+```
+
+**Update `coffees.controller.ts` to make use of service:**
+
+```ts
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Body,
+  Patch,
+  Delete,
+} from '@nestjs/common';
+import { CoffeesService } from './coffees.service';
+
+@Controller('coffees')
+export class CoffeesController {
+  // you dont want to alter provider hence readonly
+  // you dont want to make service accessable outside class
+  constructor(private readonly coffeesService: CoffeesService) {}
+  @Get()
+  findAll() {
+    return this.coffeesService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.coffeesService.findOne(id);
+  }
+
+  @Post()
+  // @HttpCode(HttpStatus.GONE)
+  // The HyperText Transfer Protocol (HTTP) 410 Gone client error response code
+  // indicates that access to the target resource is no longer available
+  // at the origin server and that this condition is likely to be permanent.
+  create(@Body() body) {
+    return this.coffeesService.create(body);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body) {
+    return this.coffeesService.update(id, body);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.coffeesService.remove(id);
+  }
+}
+
+```
 
 # Contr
 
