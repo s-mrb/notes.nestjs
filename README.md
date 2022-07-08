@@ -14,6 +14,12 @@
   - [Handling Update and Delete](#handling-update-and-delete)
   - [Implement Pagination](#implement-pagination)
   - [Creating a basic service](#creating-a-basic-service)
+  - [Responding Errors](#responding-errors)
+    - [HttpException](#httpexception)
+    - [Helper methods](#helper-methods)
+    - [Exception Layer](#exception-layer)
+  - [Modularizing](#modularizing)
+  - [Data Transfer Object, DTO](#data-transfer-object-dto)
 - [Contr](#contr)
 
 # Intro
@@ -472,6 +478,78 @@ export class CoffeesController {
 }
 
 ```
+
+## Responding Errors
+
+- Available options
+  - Throw exception
+  - Use library specific response object
+  - Create **interceptors** and leverage **exception filters**
+
+
+### HttpException
+
+```ts
+  findOne(id: string) {
+    const coffee = this.coffees.find((item) => item.id === +id);
+    if (!coffee){
+        throw new HttpException(`Coffee #${id} not found`, HttpStatus.NOT_FOUND)
+    }
+    return coffee;
+}
+```
+
+### Helper methods
+
+```ts
+  findOne(id: string) {
+    const coffee = this.coffees.find((item) => item.id === +id);
+    if (!coffee){
+        throw new NotFoundException(`Coffee #${id} not found`)
+    }
+    return coffee; 
+}
+```
+
+### Exception Layer
+
+> If we forget to handle error then Nest take care of this for us, it sends status code `500` i.e. internal server error
+> but on the server console we get what went wrong.
+
+## Modularizing
+
+- ideal architecture consists of multiple modules, each encapsulating a closely related set of capabilities
+- for example a shopping cart module will contain controller and service associated to only shopping cart
+
+**To create coffee module:**
+
+- Run module command:
+```sh
+nest g module coffees
+```
+
+- Remove `CoffeesService` and `CoffeesController` from `app.module.ts`, instead add them in `coffees` module
+  - module decorator takes a object with following attributes:
+    - controller : API routes which are meant for this module
+    - exports : things that should be available everywhere this module is imported
+    - imports : things visible in this module
+    - providers : Services that needs to be instantiated by the Nest injector
+
+**coffees.module.ts:**
+
+```ts
+import { Module } from '@nestjs/common';
+import { CoffeesController } from './coffees.controller';
+
+@Module({
+    controllers:[CoffeesController],
+    providers:[CoffeesModule]
+})
+export class CoffeesModule {}
+```
+
+
+## Data Transfer Object, DTO
 
 # Contr
 
